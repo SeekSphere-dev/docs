@@ -1,30 +1,77 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "FastAPI",
-    "version": "0.1.0"
+    "title": "SeekSphere API",
+    "description": "\n        # SeekSphere API Documentation\n        \n        Welcome to the SeekSphere API! This API provides intelligent search and data management capabilities.\n        \n        ## Getting Started\n        \n        1. **Authentication**: Most endpoints require authentication headers\n        2. **Organization Setup**: Create your organization using `/org/setup`\n        3. **Configure Schema**: Set up your search schema via `/org/search_schema`\n        4. **Manage Tokens**: Configure search tokens via `/org/tokens`\n        5. **Search**: Use the `/search` endpoint for intelligent queries\n        \n        ## Authentication Headers\n        \n        | Header | Description | Required |\n        |--------|-------------|----------|\n        | `X-User-Id` | Your user identifier | Yes (except /search, /health) |\n        | `X-Session-Id` | Your JWT session token | Yes (except /search, /health) |\n        | `X-Org-Id` | Your organization identifier | Yes |\n        | `X-Mode` | Search mode for /search endpoint | No (defaults to 'sql_only') |\n        \n        ## Search Modes\n        \n        - **sql_only**: Returns optimized SQL queries\n        - **full**: Returns comprehensive search results with context\n        \n        ## Error Handling\n        \n        All endpoints return consistent error responses:\n        \n        ```json\n        {\n            \"error\": \"Description of what went wrong\"\n        }\n        ```\n        \n        Common HTTP status codes:\n        - `200`: Success\n        - `400`: Bad Request (missing/invalid parameters)\n        - `401`: Unauthorized (missing/invalid authentication)\n        - `404`: Not Found (resource doesn't exist)\n        - `429`: Too Many Requests (rate limited)\n        - `500`: Internal Server Error\n        \n        ## Rate Limiting\n        \n        API requests are rate limited to ensure fair usage. If you receive a 429 status code, please implement exponential backoff in your retry logic.\n        \n        ## SDKs\n        \n        Official SDKs are available:\n        - **Python**: `pip install seeksphere-sdk`\n        - **TypeScript/Node.js**: `npm install your-api-sdk`\n        ",
+    "version": "1.0.0"
   },
   "paths": {
     "/org": {
       "get": {
-        "summary": "Get Org",
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Get Organization Information",
+        "description": "Retrieve organization information including project data and search schema.",
         "operationId": "get_org_org_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrgInfoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Organization not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
       }
     },
     "/org/setup": {
       "post": {
+        "tags": [
+          "Organization"
+        ],
         "summary": "Setup Organization",
-        "description": "Setup organization configuration",
+        "description": "Create and configure a new organization with project data.",
         "operationId": "setup_organization_org_setup_post",
         "requestBody": {
           "content": {
@@ -41,7 +88,29 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOrgResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID or invalid data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -55,13 +124,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
       }
     },
     "/org/recommend-columns": {
       "post": {
-        "summary": "Recommend Columns",
-        "description": "Get recommended columns for the project",
+        "tags": [
+          "AI Recommendations"
+        ],
+        "summary": "Get Column Recommendations",
+        "description": "Get AI-powered column recommendations based on project industry and schema.",
         "operationId": "recommend_columns_org_recommend_columns_post",
         "requestBody": {
           "content": {
@@ -78,7 +157,466 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendColumnsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to generate recommendations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      }
+    },
+    "/org/generate-columns": {
+      "post": {
+        "tags": [
+          "AI Recommendations"
+        ],
+        "summary": "Generate Columns",
+        "description": "Generate column data based on current and new schema configurations.",
+        "operationId": "generate_columns_org_generate_columns_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateColumnsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to generate columns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      }
+    },
+    "/org/search_schema": {
+      "get": {
+        "tags": [
+          "Schema Management"
+        ],
+        "summary": "Get Search Schema",
+        "description": "Retrieve the current search schema configuration for the organization.",
+        "operationId": "get_search_schema_org_search_schema_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Search schema not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Schema Management"
+        ],
+        "summary": "Update Search Schema",
+        "description": "Update the search schema configuration for the organization.",
+        "operationId": "update_search_schema_org_search_schema_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSchemaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateSchemaResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Search schema not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID or invalid schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      }
+    },
+    "/org/tokens": {
+      "get": {
+        "tags": [
+          "Token Management"
+        ],
+        "summary": "Get Tokens",
+        "description": "Retrieve the current token mappings for the organization.",
+        "operationId": "get_tokens_org_tokens_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokensResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tokens not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Token Management"
+        ],
+        "summary": "Update Tokens",
+        "description": "Update the token mappings for the organization.",
+        "operationId": "update_tokens_org_tokens_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTokensResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tokens not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID or invalid tokens format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Token Management"
+        ],
+        "summary": "Create Tokens",
+        "description": "Create token mappings for the organization.",
+        "operationId": "create_tokens_org_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTokensResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID or invalid tokens format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "UserAuth": [],
+            "SessionAuth": [],
+            "OrgAuth": []
+          }
+        ]
+      }
+    },
+    "/search": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search Query",
+        "description": "Process a search query using AI-powered query classification.\n    \n    **Modes:**\n    - `sql_only`: Returns SQL queries only\n    - `full`: Returns comprehensive search results with additional context\n    \n    **Headers:**\n    - `X-Org-Id`: Organization identifier (required)\n    - `X-Mode`: Search mode (optional, defaults to 'sql_only')\n    \n    This endpoint does not require authentication and can be used publicly.",
+        "operationId": "search_query_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing organization ID, invalid mode, or missing query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to process search query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -95,128 +633,22 @@
         }
       }
     },
-    "/org/generate-columns": {
-      "post": {
-        "summary": "Generate Columns",
-        "operationId": "generate_columns_org_generate_columns_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/org/search_schema": {
-      "get": {
-        "summary": "Get Search Schema",
-        "description": "Get organization search schema",
-        "operationId": "get_search_schema_org_search_schema_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Update Search Schema",
-        "description": "Update organization search schema",
-        "operationId": "update_search_schema_org_search_schema_put",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/org/tokens": {
-      "get": {
-        "summary": "Get Tokens",
-        "description": "Get organization tokens mapping",
-        "operationId": "get_tokens_org_tokens_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Update Tokens",
-        "description": "Update organization tokens mapping",
-        "operationId": "update_tokens_org_tokens_put",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create Tokens",
-        "description": "Create organization tokens mapping",
-        "operationId": "create_tokens_org_tokens_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/search": {
-      "post": {
-        "summary": "Search Query",
-        "description": "Process search query using query classifier",
-        "operationId": "search_query_search_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
+        "tags": [
+          "Health"
+        ],
         "summary": "Health Check",
+        "description": "Detailed health check endpoint with service information.",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -225,14 +657,20 @@
     },
     "/": {
       "get": {
-        "summary": "Health Check",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Root Health Check",
+        "description": "Basic health check endpoint to verify API is running.",
         "operationId": "health_check__get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -242,6 +680,73 @@
   },
   "components": {
     "schemas": {
+      "CreateTokensResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Response message"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By",
+            "description": "User who created the tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "org_id",
+          "created_by"
+        ],
+        "title": "CreateTokensResponse",
+        "description": "Create tokens response."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Error message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "Error response model."
+      },
+      "GenerateColumnsResponse": {
+        "properties": {
+          "generated_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Generated Data",
+            "description": "Generated column data"
+          }
+        },
+        "type": "object",
+        "title": "GenerateColumnsResponse",
+        "description": "Generate columns response."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -255,27 +760,80 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ProjectData": {
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Service status",
+            "example": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "description": "Service name",
+            "example": "organization-api"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message",
+            "example": "API is running"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "message"
+        ],
+        "title": "HealthResponse",
+        "description": "Health check response."
+      },
+      "OrgInfoResponse": {
         "properties": {
           "user_id": {
             "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "description": "User ID"
           },
           "industry": {
             "type": "string",
-            "title": "Industry"
+            "title": "Industry",
+            "description": "Industry category"
           },
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Project name"
           },
           "data_source": {
             "type": "string",
-            "title": "Data Source"
+            "title": "Data Source",
+            "description": "Data source"
           },
           "schema": {
             "type": "string",
-            "title": "Schema"
+            "title": "Schema",
+            "description": "Project schema"
+          },
+          "onboarding_step": {
+            "type": "string",
+            "title": "Onboarding Step",
+            "description": "Current onboarding step"
+          },
+          "search_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Schema",
+            "description": "Search schema if available"
           }
         },
         "type": "object",
@@ -283,9 +841,375 @@
           "user_id",
           "industry",
           "name",
-          "data_source"
+          "data_source",
+          "schema",
+          "onboarding_step"
         ],
-        "title": "ProjectData"
+        "title": "OrgInfoResponse",
+        "description": "Organization information response."
+      },
+      "ProjectData": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "User ID associated with the project"
+          },
+          "industry": {
+            "type": "string",
+            "title": "Industry",
+            "description": "Industry category for the project"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Project name"
+          },
+          "data_source": {
+            "type": "string",
+            "title": "Data Source",
+            "description": "Data source information"
+          },
+          "schema": {
+            "type": "string",
+            "title": "Schema",
+            "description": "Project schema definition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "industry",
+          "name",
+          "data_source",
+          "schema"
+        ],
+        "title": "ProjectData",
+        "description": "Project data for organization setup."
+      },
+      "RecommendColumnsResponse": {
+        "properties": {
+          "recommendations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recommendations",
+            "description": "Column recommendations"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Response metadata"
+          }
+        },
+        "type": "object",
+        "title": "RecommendColumnsResponse",
+        "description": "Column recommendations response."
+      },
+      "SchemaResponse": {
+        "properties": {
+          "search_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Search Schema",
+            "description": "Current search schema"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_schema",
+          "org_id"
+        ],
+        "title": "SchemaResponse",
+        "description": "Schema response."
+      },
+      "SearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Query",
+            "description": "Search query string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest",
+        "description": "Search query request."
+      },
+      "SearchResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Whether the search was successful"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sql_only",
+              "full"
+            ],
+            "title": "Mode",
+            "description": "Search mode used"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "User ID who performed the search"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Source of the result"
+          },
+          "processing_time_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processing Time Ms",
+            "description": "Processing time in milliseconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "org_id",
+          "mode",
+          "user_id"
+        ],
+        "title": "SearchResponse",
+        "description": "Search query response."
+      },
+      "SetupOrgResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Response message"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id",
+            "description": "Created project ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "project_id"
+        ],
+        "title": "SetupOrgResponse",
+        "description": "Organization setup response."
+      },
+      "TokensResponse": {
+        "properties": {
+          "tokens": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Tokens",
+            "description": "Current token mappings"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tokens",
+          "org_id"
+        ],
+        "title": "TokensResponse",
+        "description": "Tokens response."
+      },
+      "UpdateSchemaRequest": {
+        "properties": {
+          "search_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Search Schema",
+            "description": "Search schema configuration",
+            "example": {
+              "tables": {
+                "users": {
+                  "columns": [
+                    "id",
+                    "name",
+                    "email"
+                  ],
+                  "types": [
+                    "int",
+                    "varchar",
+                    "varchar"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_schema"
+        ],
+        "title": "UpdateSchemaRequest",
+        "description": "Request to update search schema."
+      },
+      "UpdateSchemaResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Response message"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          },
+          "updated_by": {
+            "type": "string",
+            "title": "Updated By",
+            "description": "User who updated the schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "org_id",
+          "updated_by"
+        ],
+        "title": "UpdateSchemaResponse",
+        "description": "Update schema response."
+      },
+      "UpdateTokensRequest": {
+        "properties": {
+          "tokens": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Tokens",
+            "description": "Mapping of token categories to lists of tokens",
+            "example": {
+              "product_categories": [
+                "electronics",
+                "clothing",
+                "books"
+              ],
+              "user_types": [
+                "premium",
+                "standard",
+                "trial"
+              ]
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "tokens"
+        ],
+        "title": "UpdateTokensRequest",
+        "description": "Request to update organization tokens."
+      },
+      "UpdateTokensResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Response message"
+          },
+          "org_id": {
+            "type": "string",
+            "title": "Org Id",
+            "description": "Organization ID"
+          },
+          "updated_by": {
+            "type": "string",
+            "title": "Updated By",
+            "description": "User who updated the tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "org_id",
+          "updated_by"
+        ],
+        "title": "UpdateTokensResponse",
+        "description": "Update tokens response."
       },
       "ValidationError": {
         "properties": {
@@ -319,6 +1243,26 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "UserAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-User-Id",
+        "description": "User identifier"
+      },
+      "SessionAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Session-Id",
+        "description": "JWT session token"
+      },
+      "OrgAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Org-Id",
+        "description": "Organization identifier"
       }
     }
   }
