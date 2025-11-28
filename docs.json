@@ -18,7 +18,17 @@
                         "pages": [
                             "index",
                             "quickstart",
-                            "development"
+                            "development",
+                            "onboarding/setupForm"
+                        ]
+                    },
+                    {
+                        "group": "How SeekSphere Works",
+                        "pages": [
+                            "how-seeksphere-works/index",
+                            "how-seeksphere-works/dataSchema",
+                            "tokens",
+                            "patterns"
                         ]
                     }
                 ]

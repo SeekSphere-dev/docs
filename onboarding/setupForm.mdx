@@ -1,0 +1,10 @@
+---
+title: "Setup Form"
+---
+
+After you create an org you are redirected to a page that tells you setup the search the form has the folllowing feilds
+
+1. **Org Name**: This is required for for the model have context of your business
+2. **Industry**: This is required to give the model some context on the natural langauge query you users fire
+3. **Data Source**: This is the type (postgres, mysql, dynamodb, etc) of your source db, ie., thedb that we'll be searching/looking at to resolve the search
+4. **Data Schema**: The schema in which your data is stored this has to be a valid Data Design Language / Query Language for explain for postgres we look for `CREATE TABLE ...`  and for dynamo we look for json representation for your data with proper types
